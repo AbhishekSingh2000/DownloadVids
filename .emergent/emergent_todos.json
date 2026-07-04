@@ -1,22 +1,22 @@
 [
   {
-    "content": "Phase 1: Install yt-dlp + ffmpeg and write POC script (4 URLs, 1 per platform)",
-    "status": "in_progress"
+    "content": "Phase 1 POC: install yt-dlp/ffmpeg/playwright/pytubefix",
+    "status": "completed"
   },
   {
-    "content": "Phase 1: Run POC and confirm MP4 + MP3 work for IG/TikTok/YT/FB",
-    "status": "pending"
+    "content": "Phase 1 POC: validate download methods per platform",
+    "status": "completed"
   },
   {
     "content": "Phase 2: Get design guidelines",
+    "status": "in_progress"
+  },
+  {
+    "content": "Phase 2: Build FastAPI backend (downloader engine + endpoints)",
     "status": "pending"
   },
   {
-    "content": "Phase 2: Build FastAPI backend (metadata + download endpoints)",
-    "status": "pending"
-  },
-  {
-    "content": "Phase 2: Build React table UI with 41 preloaded rows",
+    "content": "Phase 2: Build React table UI with 41 preloaded rows + bulk actions",
     "status": "pending"
   },
   {
