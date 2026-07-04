@@ -1,0 +1,26 @@
+[
+  {
+    "content": "Phase 1: Install yt-dlp + ffmpeg and write POC script (4 URLs, 1 per platform)",
+    "status": "in_progress"
+  },
+  {
+    "content": "Phase 1: Run POC and confirm MP4 + MP3 work for IG/TikTok/YT/FB",
+    "status": "pending"
+  },
+  {
+    "content": "Phase 2: Get design guidelines",
+    "status": "pending"
+  },
+  {
+    "content": "Phase 2: Build FastAPI backend (metadata + download endpoints)",
+    "status": "pending"
+  },
+  {
+    "content": "Phase 2: Build React table UI with 41 preloaded rows",
+    "status": "pending"
+  },
+  {
+    "content": "Phase 2: End-to-end testing via testing_agent_v3",
+    "status": "pending"
+  }
+]
