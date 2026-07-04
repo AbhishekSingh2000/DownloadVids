@@ -28,7 +28,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import RowActions from "@/components/RowActions";
 import StatusChip from "@/components/StatusChip";
 
-const PLATFORMS = ["all", "instagram", "tiktok", "youtube", "facebook"];
+const PLATFORMS = ["all", "instagram", "tiktok", "youtube", "facebook", "linkedin"];
 const STATUSES = ["all", "pending", "preparing", "ready", "error"];
 
 export default function Dashboard() {
@@ -159,7 +159,7 @@ export default function Dashboard() {
             </div>
             <div className="leading-tight">
               <h1 className="text-lg font-semibold text-slate-900">Content Link Downloader</h1>
-              <p className="text-xs text-slate-500">Instagram · TikTok · YouTube · Facebook — MP4 &amp; MP3</p>
+              <p className="text-xs text-slate-500">Instagram · TikTok · YouTube · Facebook · LinkedIn — MP4 &amp; MP3</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

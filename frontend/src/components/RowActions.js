@@ -10,6 +10,7 @@ const EXTERNAL_HELPER = {
   tiktok: "https://www.tikwm.com/",
   youtube: "https://ymp4.download/en/",
   facebook: "https://snapsave.app/",
+  linkedin: "https://iloveyt.net/en/linkedin-video-downloader",
 };
 
 export default function RowActions({ row, onPrepare, compact = false }) {

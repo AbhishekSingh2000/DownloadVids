@@ -58,6 +58,8 @@ def detect_platform(url: str) -> str:
         return "facebook"
     if "instagram.com" in u:
         return "instagram"
+    if "linkedin.com" in u:
+        return "linkedin"
     return "unknown"
 
 
@@ -294,6 +296,8 @@ async def fetch_metadata(url: str) -> Dict[str, Any]:
         m = await asyncio.to_thread(meta_youtube, url)
     elif platform == "facebook":
         m = await meta_facebook(url)
+    elif platform == "linkedin":
+        m = await asyncio.to_thread(meta_linkedin, url)
     else:
         raise ValueError(f"Unsupported platform for {url}")
 
@@ -301,6 +305,57 @@ async def fetch_metadata(url: str) -> Dict[str, Any]:
     m["source_url"] = url
     m["duration_str"] = format_duration(m.get("duration"))
     return m
+
+
+def meta_linkedin(url: str) -> Dict[str, Any]:
+    """Scrape LinkedIn post HTML directly - embeds progressive MP4 URL."""
+    r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120", "Accept-Language": "en-US"}, timeout=25)
+    if r.status_code != 200:
+        raise RuntimeError(f"linkedin http {r.status_code}")
+    html = r.text
+
+    # Extract MP4 URL (highest quality) - look for dms.licdn.com playlist URLs
+    mp4_urls = re.findall(r'https://dms\.licdn\.com/playlist/vid/[^"\'<>\s&]+(?:&(?:amp;)?[^"\'<>\s&]+)*', html)
+    # Clean HTML entities
+    cleaned = []
+    for u in mp4_urls:
+        u = u.replace("&amp;", "&").replace("&quot;", "").replace("\\u0026", "&")
+        # Trim after any obvious break chars
+        u = re.split(r'[\"\'<>\s]', u)[0]
+        cleaned.append(u)
+    # Pick highest resolution (look for e.g. -720p or -1080p)
+    def qkey(u):
+        m = re.search(r'-(\d{3,4})p', u)
+        return int(m.group(1)) if m else 0
+    cleaned.sort(key=qkey, reverse=True)
+    mp4_url = cleaned[0] if cleaned else None
+
+    # Creator - from og:title (e.g. "hashtags | Charlie Sebastian Arellano")
+    creator = None
+    og_title = re.search(r'<meta[^>]+og:title[^>]+content="([^"]+)"', html)
+    if og_title:
+        title = og_title.group(1)
+        # Format usually "<caption> | <Author Name>" or just "<Author>"
+        parts = [p.strip() for p in title.split("|") if p.strip()]
+        if parts:
+            # Author is last segment (after final "|")
+            creator = parts[-1]
+    # Also try author meta
+    if not creator:
+        am = re.search(r'"authorName":\s*"([^"]+)"', html)
+        if am: creator = am.group(1)
+
+    # Thumbnail
+    thumb = None
+    og_img = re.search(r'<meta[^>]+og:image[^>]+content="([^"]+)"', html)
+    if og_img: thumb = og_img.group(1)
+
+    return {
+        "creator": creator or "linkedin",
+        "duration": None,  # will probe from downloaded mp4
+        "thumbnail": thumb,
+        "mp4_url": mp4_url,
+    }
 
 
 # ---------- Downloader ----------
@@ -347,6 +402,7 @@ def _referer_for(platform: str) -> str:
         "tiktok": "https://www.tikwm.com/",
         "facebook": "https://snapsave.app/",
         "youtube": "https://www.youtube.com/",
+        "linkedin": "https://www.linkedin.com/",
     }.get(platform, "")
 
 

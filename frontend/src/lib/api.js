@@ -11,6 +11,7 @@ export const platformLabel = (p) => ({
   tiktok: "TikTok",
   youtube: "YouTube",
   facebook: "Facebook",
+  linkedin: "LinkedIn",
 }[p] || p);
 
 export const platformBadgeClasses = (p) => ({
@@ -18,6 +19,7 @@ export const platformBadgeClasses = (p) => ({
   tiktok:    "bg-[#ECFEFF] text-[#155E75] border border-[#A5F3FC]",
   youtube:   "bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA]",
   facebook:  "bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]",
+  linkedin:  "bg-[#EFF6FF] text-[#075985] border border-[#7DD3FC]",
 }[p] || "bg-slate-100 text-slate-700 border border-slate-200");
 
 export const statusChipClasses = (s) => ({
