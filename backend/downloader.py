@@ -126,45 +126,90 @@ def _ig_creator_from_embed(url: str) -> Optional[str]:
 
 
 async def meta_instagram(url: str) -> Dict[str, Any]:
+    """Fetch metadata by visiting the Instagram post directly in Playwright.
+    IG's own web page returns the video via cdninstagram.com — we capture the request
+    and grab the direct MP4 URL. This is far more reliable than 3rd-party downloaders
+    (which are now protected by Cloudflare Turnstile captchas).
+    """
     page, ctx = await new_page()
+    mp4_url = None
+    thumb = None
+    creator = None
+    duration = None
     try:
-        await page.goto("https://fastdl.app/en", wait_until="domcontentloaded", timeout=45000)
-        await page.wait_for_selector("input#search-form-input", timeout=15000)
-        await page.fill("input#search-form-input", url)
-        await page.click("button#searchFormButton")
-        # Wait specifically for the download anchor
-        await page.wait_for_selector("a.button__download[href*='fastdl.app/get']", timeout=60000)
-        await page.wait_for_timeout(1200)
-        # Extract MP4 URL from the actual download anchor (only source of video URL)
-        dl_anchor = await page.query_selector("a.button__download[href*='fastdl.app/get']")
-        mp4_url = None
-        if dl_anchor:
-            href = await dl_anchor.get_attribute("href")
-            if href:
-                # Skip if it's an image download (uri contains .jpg and NOT .mp4)
-                if "%2Fo1%2Fv%2F" in href or "video" in href.lower() or ".mp4" in href:
-                    mp4_url = href.replace("&amp;", "&")
-        # Thumbnail from media-content__image
-        thumb = None
-        thumb_el = await page.query_selector(".media-content__image")
-        if thumb_el:
-            thumb = await thumb_el.get_attribute("src")
-            if thumb: thumb = thumb.replace("&amp;", "&")
+        collected = {"videos": set(), "resp_url": None}
 
-        # Duration ? not in fastdl - will probe file later
+        def on_request(req):
+            u = req.url
+            if "cdninstagram" in u and ".mp4" in u:
+                collected["videos"].add(u)
+
+        def on_response(r):
+            u = r.url
+            if "cdninstagram" in u:
+                ct = (r.headers or {}).get("content-type", "")
+                if "video" in ct or ".mp4" in u:
+                    collected["videos"].add(u)
+
+        page.on("request", on_request)
+        page.on("response", on_response)
+
+        await page.goto(url, timeout=45000, wait_until="domcontentloaded")
+        # Give the video player time to fetch the stream
+        await page.wait_for_timeout(6000)
+
+        html = await page.content()
+
+        # 1. Prefer the network-captured URLs (most reliable)
+        for u in collected["videos"]:
+            if ".mp4" in u:
+                mp4_url = u
+                break
+
+        # 2. Fallback - scrape mp4 URLs from the HTML body
+        if not mp4_url:
+            for m in re.findall(r'https?://[^\s"\'<>\\]+cdninstagram[^\s"\'<>\\]+\.mp4[^\s"\'<>\\]*', html):
+                mp4_url = m.replace("\\u0026", "&").replace("&amp;", "&")
+                break
+
+        # 3. og:video fallback
+        if not mp4_url:
+            m = re.search(r'<meta[^>]+og:video[^>]+content="([^"]+)"', html)
+            if m: mp4_url = m.group(1).replace("&amp;", "&")
+
+        # Creator from meta / JSON blob
+        um = re.search(r'"username":\s*"([^"]{2,50})"', html)
+        if um: creator = um.group(1)
+        if not creator:
+            # og:title looks like: "Username on Instagram: ..."
+            m = re.search(r'<meta[^>]+og:title[^>]+content="([^"]+)"', html)
+            if m:
+                og = m.group(1)
+                nm = re.search(r'^([^:]+?)\s+on Instagram', og)
+                if nm: creator = nm.group(1).strip()
+
+        # Duration - IG data contains "video_duration"
+        dm = re.search(r'"video_duration":\s*([\d.]+)', html)
+        if dm:
+            try: duration = int(float(dm.group(1)))
+            except Exception: pass
+
+        # Thumbnail from og:image
+        tm = re.search(r'<meta[^>]+og:image[^>]+content="([^"]+)"', html)
+        if tm: thumb = tm.group(1).replace("&amp;", "&")
     finally:
         await ctx.close()
 
-    # Creator from IG embed (fallback approach)
-    creator = await asyncio.to_thread(_ig_creator_from_embed, url)
+    # Fallback for creator via IG embed page (uses different backend)
     if not creator:
-        # last-resort fallback: use shortcode as identifier
+        creator = await asyncio.to_thread(_ig_creator_from_embed, url)
+    if not creator:
         code = _extract_ig_shortcode(url) or "instagram"
         creator = f"instagram_{code}"[:30]
 
     return {
         "creator": creator,
-        "duration": None,
+        "duration": duration,
         "thumbnail": thumb,
         "mp4_url": mp4_url,
     }
@@ -441,7 +486,7 @@ async def prepare_downloads(url: str, tmp_dir: Path) -> Dict[str, Any]:
                 errors["mp3"] = "ffmpeg conversion failed"
                 mp3_path = None
             try: tmp_audio.unlink()
-            except: pass
+            except Exception: pass
         else:
             # Fallback to extracting from mp4
             audio_source_url = None

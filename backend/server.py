@@ -52,6 +52,7 @@ class VideoRow(BaseModel):
     inf_id: str
     url: str
     platform: str
+    country: str = ""
     creator: Optional[str] = None
     duration: Optional[int] = None  # seconds
     duration_str: Optional[str] = None
@@ -75,10 +76,15 @@ def _row_lock(idx: int) -> asyncio.Lock:
 
 
 def _init_rows() -> None:
-    for i, (inf_id, url) in enumerate(LINKS):
+    for i, entry in enumerate(LINKS):
+        if len(entry) == 3:
+            inf_id, url, country = entry
+        else:
+            inf_id, url = entry
+            country = ""
         platform = detect_platform(url)
         _rows_cache[i] = VideoRow(
-            idx=i, inf_id=inf_id, url=url, platform=platform,
+            idx=i, inf_id=inf_id, url=url, platform=platform, country=country,
             status="pending", duration_str="[0:00:00]",
         )
 
@@ -92,17 +98,20 @@ async def _load_from_db() -> None:
             idx = int(doc.get("idx", -1))
             if idx in _rows_cache:
                 r = _rows_cache[idx]
+                # NOTE: url/inf_id/country/platform come from seed_data (source of truth); DB only restores dynamic fields.
                 for k in ["creator", "duration", "duration_str", "thumbnail", "status", "last_error", "updated_at"]:
                     if k in doc and doc[k] is not None:
                         setattr(r, k, doc[k])
-                # Only mark files ready if they still exist on disk
-                cache_sub = CACHE_DIR / f"row_{idx}"
-                r.mp4_ready = (cache_sub / "video.mp4").exists()
-                r.mp3_ready = (cache_sub / "audio.mp3").exists()
-                # If DB says ready but files gone, revert to pending? We keep metadata visible but require re-prepare for downloads.
-                if r.status == "ready" and not (r.mp4_ready and r.mp3_ready):
-                    # keep as ready-with-metadata; UI can still see creator/duration; user re-hits Prepare if they want fresh files
-                    pass
+                # Only mark files ready if they still exist on disk AND URL matches DB
+                if doc.get("url") == r.url and doc.get("inf_id") == r.inf_id:
+                    cache_sub = CACHE_DIR / f"row_{idx}"
+                    r.mp4_ready = (cache_sub / "video.mp4").exists()
+                    r.mp3_ready = (cache_sub / "audio.mp3").exists()
+                else:
+                    # URL/ID changed since last run — treat as pending
+                    r.status = "pending"
+                    r.creator = None; r.duration = None; r.duration_str = "[0:00:00]"
+                    r.thumbnail = None; r.last_error = None; r.mp4_ready = False; r.mp3_ready = False
     except Exception as e:
         logger.warning(f"failed to load from db: {e}")
 

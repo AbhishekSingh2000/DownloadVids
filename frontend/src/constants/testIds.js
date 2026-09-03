@@ -1,14 +1,15 @@
 // Test IDs used throughout the app for stable e2e/unit testing.
 export const TESTIDS = {
   bulkPrepareAll: "bulk-prepare-all-button",
-  bulkDownloadMp4: "bulk-download-mp4-button",
-  bulkDownloadMp3: "bulk-download-mp3-button",
+  bulkDownloadGermany: "bulk-download-germany-button",
+  bulkDownloadItaly: "bulk-download-italy-button",
   bulkReset: "bulk-reset-button",
   bulkResetConfirm: "bulk-reset-confirm-button",
   bulkResetCancel: "bulk-reset-cancel-button",
   searchInput: "links-search-input",
   platformFilter: "platform-filter-select",
   statusFilter: "status-filter-select",
+  countryFilter: "country-filter-select",
   kpiTotal: "kpi-total",
   kpiReady: "kpi-ready",
   kpiErrors: "kpi-errors",

@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { api, platformLabel, platformBadgeClasses, openDownload } from "@/lib/api";
+import { api, platformLabel, platformBadgeClasses, countryBadgeClasses, countryFlag, openDownload } from "@/lib/api";
 import { TESTIDS } from "@/constants/testIds";
 import { toast } from "sonner";
 import {
   Loader2, Download, RefreshCw, ChevronDown, ChevronUp,
   ExternalLink, Copy, CheckCircle2, AlertTriangle, Search,
   Music2, Video, Play, X, Filter, Trash2, Sun, Moon, Zap,
+  Flag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ import StatusChip from "@/components/StatusChip";
 
 const PLATFORMS = ["all", "instagram", "tiktok", "youtube", "facebook", "linkedin"];
 const STATUSES = ["all", "pending", "preparing", "ready", "error"];
+const COUNTRIES = ["all", "Germany", "Italy"];
 
 export default function Dashboard() {
   const [rows, setRows] = useState([]);
@@ -37,6 +39,7 @@ export default function Dashboard() {
   const [query, setQuery] = useState("");
   const [platform, setPlatform] = useState("all");
   const [status, setStatus] = useState("all");
+  const [country, setCountry] = useState("all");
   const [bulkPreparing, setBulkPreparing] = useState(false);
   const [bulkDownloading, setBulkDownloading] = useState(false);
   const [expandedError, setExpandedError] = useState({});
@@ -97,23 +100,32 @@ export default function Dashboard() {
     setBulkPreparing(false);
   }, [rows, prepareRow]);
 
-  const bulkDownload = useCallback(async (fmt) => {
+  const bulkDownloadByCountry = useCallback(async (countryName) => {
     setBulkDownloading(true);
-    const ready = rows.filter((r) => (fmt === "mp4" ? r.mp4_ready : r.mp3_ready));
+    const ready = rows.filter((r) => r.country === countryName && (r.mp4_ready || r.mp3_ready));
     if (ready.length === 0) {
-      toast.info(`No ${fmt.toUpperCase()} ready. Click Prepare All first.`);
+      toast.info(`No ${countryName} rows ready. Click Prepare All first.`);
       setBulkDownloading(false);
       return;
     }
-    const tid = toast.loading(`Downloading ${fmt.toUpperCase()} 0/${ready.length}...`);
-    for (let i = 0; i < ready.length; i++) {
-      const r = ready[i];
-      openDownload(r.idx, fmt);
-      toast.loading(`Downloading ${fmt.toUpperCase()} ${i + 1}/${ready.length}...`, { id: tid });
-      // small delay so browsers don't drop multiple downloads
-      await new Promise((res) => setTimeout(res, 700));
+    const total = ready.length * 2; // mp4 + mp3 per row
+    const tid = toast.loading(`Downloading ${countryName} 0/${total}...`);
+    let n = 0;
+    for (const r of ready) {
+      if (r.mp4_ready) {
+        openDownload(r.idx, "mp4");
+        n += 1;
+        toast.loading(`Downloading ${countryName} ${n}/${total}...`, { id: tid });
+        await new Promise((res) => setTimeout(res, 700));
+      }
+      if (r.mp3_ready) {
+        openDownload(r.idx, "mp3");
+        n += 1;
+        toast.loading(`Downloading ${countryName} ${n}/${total}...`, { id: tid });
+        await new Promise((res) => setTimeout(res, 700));
+      }
     }
-    toast.success(`Started ${ready.length} ${fmt.toUpperCase()} downloads`, { id: tid });
+    toast.success(`Started ${n} ${countryName} downloads`, { id: tid });
     setBulkDownloading(false);
   }, [rows]);
 
@@ -132,20 +144,24 @@ export default function Dashboard() {
     return rows.filter((r) => {
       if (platform !== "all" && r.platform !== platform) return false;
       if (status !== "all" && r.status !== status) return false;
+      if (country !== "all" && r.country !== country) return false;
       if (!q) return true;
       return (
         r.inf_id.toLowerCase().includes(q) ||
         r.url.toLowerCase().includes(q) ||
-        (r.creator || "").toLowerCase().includes(q)
+        (r.creator || "").toLowerCase().includes(q) ||
+        (r.country || "").toLowerCase().includes(q)
       );
     });
-  }, [rows, query, platform, status]);
+  }, [rows, query, platform, status, country]);
 
   const stats = useMemo(() => ({
     total: rows.length,
     ready: rows.filter((r) => r.status === "ready").length,
     preparing: rows.filter((r) => r.status === "preparing").length,
     errors: rows.filter((r) => r.status === "error").length,
+    germanyReady: rows.filter((r) => r.country === "Germany" && (r.mp4_ready || r.mp3_ready)).length,
+    italyReady:   rows.filter((r) => r.country === "Italy"   && (r.mp4_ready || r.mp3_ready)).length,
   }), [rows]);
 
   return (
@@ -198,22 +214,22 @@ export default function Dashboard() {
             <Button
               variant="outline"
               disabled={bulkDownloading}
-              onClick={() => bulkDownload("mp4")}
-              className="border-[#CFE8F6] text-[#075985] hover:bg-[#F0F9FF]"
-              data-testid={TESTIDS.bulkDownloadMp4}
+              onClick={() => bulkDownloadByCountry("Germany")}
+              className="border-[#FDE68A] text-[#78350F] hover:bg-[#FEF3C7]"
+              data-testid={TESTIDS.bulkDownloadGermany}
             >
-              <Video className="h-4 w-4 mr-2" />
-              Download All MP4 <span className="ml-2 text-[11px] text-slate-500">({stats.ready})</span>
+              <span className="mr-2 text-base leading-none">🇩🇪</span>
+              Download Germany <span className="ml-2 text-[11px] text-slate-500">({stats.germanyReady})</span>
             </Button>
             <Button
               variant="outline"
               disabled={bulkDownloading}
-              onClick={() => bulkDownload("mp3")}
-              className="border-[#CFE8F6] text-[#075985] hover:bg-[#F0F9FF]"
-              data-testid={TESTIDS.bulkDownloadMp3}
+              onClick={() => bulkDownloadByCountry("Italy")}
+              className="border-[#BBF7D0] text-[#166534] hover:bg-[#DCFCE7]"
+              data-testid={TESTIDS.bulkDownloadItaly}
             >
-              <Music2 className="h-4 w-4 mr-2" />
-              Download All MP3
+              <span className="mr-2 text-base leading-none">🇮🇹</span>
+              Download Italy <span className="ml-2 text-[11px] text-slate-500">({stats.italyReady})</span>
             </Button>
           </div>
           <AlertDialog>
@@ -252,7 +268,20 @@ export default function Dashboard() {
               className="pl-9 bg-white" data-testid={TESTIDS.searchInput}
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Select value={country} onValueChange={setCountry}>
+              <SelectTrigger className="w-40 bg-white" data-testid={TESTIDS.countryFilter}>
+                <Flag className="h-4 w-4 mr-1 text-slate-500" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {COUNTRIES.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c === "all" ? "All countries" : `${countryFlag(c)} ${c}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={platform} onValueChange={setPlatform}>
               <SelectTrigger className="w-40 bg-white" data-testid={TESTIDS.platformFilter}>
                 <Filter className="h-4 w-4 mr-1 text-slate-500" />
@@ -284,7 +313,8 @@ export default function Dashboard() {
             <Table className="min-w-[1100px]">
               <TableHeader className="bg-slate-50 sticky top-0 z-10">
                 <TableRow>
-                  <TableHead className="w-[90px]">INF ID</TableHead>
+                  <TableHead className="w-[110px]">INF ID</TableHead>
+                  <TableHead className="w-[110px]">Country</TableHead>
                   <TableHead className="w-[110px]">Platform</TableHead>
                   <TableHead className="w-[80px]">Thumb</TableHead>
                   <TableHead>Creator</TableHead>
@@ -297,14 +327,14 @@ export default function Dashboard() {
               <TableBody>
                 {loading && Array.from({ length: 10 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 8 }).map((__, j) => (
+                    {Array.from({ length: 9 }).map((__, j) => (
                       <TableCell key={j}><Skeleton className="h-6 w-full" /></TableCell>
                     ))}
                   </TableRow>
                 ))}
                 {!loading && filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-16 text-slate-500">
+                    <TableCell colSpan={9} className="text-center py-16 text-slate-500">
                       No links match your filters.
                     </TableCell>
                   </TableRow>
@@ -373,6 +403,13 @@ function RowLine({ row, onPrepare, expandedError, setExpandedError }) {
       <TableRow className={stateClass}>
         <TableCell className="font-mono text-xs font-semibold text-slate-900">{row.inf_id}</TableCell>
         <TableCell>
+          {row.country ? (
+            <Badge variant="outline" className={`text-xs ${countryBadgeClasses(row.country)} font-medium whitespace-nowrap`}>
+              <span className="mr-1">{countryFlag(row.country)}</span>{row.country}
+            </Badge>
+          ) : <span className="text-slate-400">—</span>}
+        </TableCell>
+        <TableCell>
           <Badge variant="outline" className={`text-xs ${platformBadgeClasses(row.platform)} font-medium`}>
             {platformLabel(row.platform)}
           </Badge>
@@ -438,7 +475,7 @@ function RowLine({ row, onPrepare, expandedError, setExpandedError }) {
       </TableRow>
       {row.status === "error" && row.last_error && (
         <TableRow className={`${stateClass} border-t-0`}>
-          <TableCell colSpan={8} className="pt-0 pb-3">
+          <TableCell colSpan={9} className="pt-0 pb-3">
             <Collapsible open={!!expandedError} onOpenChange={setExpandedError}>
               <CollapsibleTrigger asChild>
                 <button
@@ -476,8 +513,13 @@ function RowCard({ row, onPrepare }) {
           <Skeleton className="h-14 w-14 rounded-md shrink-0" />
         )}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="font-mono text-xs font-semibold">{row.inf_id}</span>
+            {row.country && (
+              <Badge variant="outline" className={`text-[10px] ${countryBadgeClasses(row.country)} font-medium whitespace-nowrap`}>
+                <span className="mr-1">{countryFlag(row.country)}</span>{row.country}
+              </Badge>
+            )}
             <Badge variant="outline" className={`text-[10px] ${platformBadgeClasses(row.platform)} font-medium`}>
               {platformLabel(row.platform)}
             </Badge>

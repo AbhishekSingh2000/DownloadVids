@@ -22,6 +22,16 @@ export const platformBadgeClasses = (p) => ({
   linkedin:  "bg-[#EFF6FF] text-[#075985] border border-[#7DD3FC]",
 }[p] || "bg-slate-100 text-slate-700 border border-slate-200");
 
+export const countryBadgeClasses = (c) => ({
+  Germany: "bg-[#FEF3C7] text-[#78350F] border border-[#FDE68A]",
+  Italy:   "bg-[#DCFCE7] text-[#166534] border border-[#BBF7D0]",
+}[c] || "bg-slate-100 text-slate-700 border border-slate-200");
+
+export const countryFlag = (c) => ({
+  Germany: "🇩🇪",
+  Italy:   "🇮🇹",
+}[c] || "");
+
 export const statusChipClasses = (s) => ({
   pending:    "bg-slate-100 text-slate-700",
   preparing:  "bg-sky-100 text-sky-800",
